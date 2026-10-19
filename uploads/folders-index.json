@@ -1,0 +1,47 @@
+[
+  {
+    "name": "Обложки заметок",
+    "path": "covers",
+    "icon": "sparkles",
+    "color": "#f59e0b",
+    "id": "1e79a1ac-de15-43c3-a720-0044f77bc461",
+    "createdAt": "2026-10-19T13:42:15.749Z",
+    "updatedAt": "2026-10-19T13:42:15.749Z"
+  },
+  {
+    "name": "События 2026",
+    "path": "events-2026",
+    "icon": "calendar",
+    "color": "#38bdf8",
+    "id": "35e8d561-ecfb-44d1-b452-20c12915f85b",
+    "createdAt": "2026-10-19T13:42:15.749Z",
+    "updatedAt": "2026-10-19T13:42:15.749Z"
+  },
+  {
+    "name": "Темы и арты",
+    "path": "themes",
+    "icon": "palette",
+    "color": "#a855f7",
+    "id": "ac43560c-bf11-4b72-ab7a-9e25b36b11e3",
+    "createdAt": "2026-10-19T13:42:15.749Z",
+    "updatedAt": "2026-10-19T13:42:15.749Z"
+  },
+  {
+    "name": "Ремиксы и вариации",
+    "path": "remixes",
+    "icon": "layers",
+    "color": "#10b981",
+    "id": "fae3edd5-5675-4d63-8673-808845f63da2",
+    "createdAt": "2026-10-19T13:42:15.749Z",
+    "updatedAt": "2026-10-19T13:42:15.749Z"
+  },
+  {
+    "name": "Архив",
+    "path": "archive",
+    "icon": "archive",
+    "color": "#64748b",
+    "id": "956238ad-fc6d-44ca-beab-da4ea18f2e07",
+    "createdAt": "2026-10-19T13:42:15.749Z",
+    "updatedAt": "2026-10-19T13:42:15.749Z"
+  }
+]

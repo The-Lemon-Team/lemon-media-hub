@@ -1,0 +1,31 @@
+# Compiled output
+/dist
+/build
+
+# Dependencies
+/node_modules
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Uploads & generated media files
+/uploads/media/*
+!/uploads/media/.gitkeep
+/uploads/thumbs/*
+!/uploads/thumbs/.gitkeep
+/uploads/media-index.json
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
