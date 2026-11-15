@@ -29,8 +29,10 @@ UPLOAD_DIR="./uploads"
 pnpm run start:dev
 ```
 
-### 4. Interactive Swagger Documentation
-Open [http://localhost:3005/docs](http://localhost:3005/docs) to test and inspect all API endpoints interactively.
+### 4. 🎨 Admin DAM Studio & Swagger
+- **Admin Studio**: Open [http://localhost:3005/admin](http://localhost:3005/admin) (or root `/`) to access the built-in DAM Admin UI with generation, lineage graph, folders, and remixes.
+- **Swagger API Docs**: Open [http://localhost:3005/docs](http://localhost:3005/docs) to test and inspect all API endpoints interactively.
+- **Admin UI Development**: `pnpm run admin:dev` (runs Vite dev server on `http://localhost:5173/admin` with HMR and API proxy).
 
 ---
 

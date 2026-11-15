@@ -1,128 +1,118 @@
-import { Injectable, Logger, OnModuleInit, NotFoundException, BadRequestException } from '@nestjs/common';
-import * as fs from 'fs/promises';
-import * as path from 'path';
-import { randomUUID } from 'crypto';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { MediaVisibility } from '@prisma/client';
+import { MediaEventsService } from '../events/media-events.service';
+import { PrismaService } from '../prisma/prisma.service';
 
-export interface MediaFolder {
+export interface MediaFolderDto {
   id: string;
   name: string;
-  path: string; // e.g. "covers/2026"
+  path: string;
   parentId?: string | null;
-  color?: string;
-  icon?: string;
+  icon?: string | null;
+  color?: string | null;
+  defaultVisibility: MediaVisibility;
+  assetsCount?: number;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface CreateFolderDto {
+export interface CreateFolderInput {
   name: string;
   path?: string;
   parentId?: string | null;
-  color?: string;
   icon?: string;
+  color?: string;
+  defaultVisibility?: MediaVisibility;
 }
 
-const DEFAULT_FOLDERS: Omit<MediaFolder, 'id' | 'createdAt' | 'updatedAt'>[] = [
-  { name: 'Обложки заметок', path: 'covers', icon: 'sparkles', color: '#f59e0b' },
-  { name: 'События 2026', path: 'events-2026', icon: 'calendar', color: '#38bdf8' },
-  { name: 'Темы и арты', path: 'themes', icon: 'palette', color: '#a855f7' },
-  { name: 'Ремиксы и вариации', path: 'remixes', icon: 'layers', color: '#10b981' },
-  { name: 'Архив', path: 'archive', icon: 'archive', color: '#64748b' },
-];
-
 @Injectable()
-export class FoldersService implements OnModuleInit {
-  private readonly logger = new Logger(FoldersService.name);
-  private readonly indexPath = path.join(process.cwd(), 'uploads', 'folders-index.json');
-  private folders: MediaFolder[] = [];
-  private isLoaded = false;
+export class FoldersService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mediaEvents: MediaEventsService,
+  ) {}
 
-  async onModuleInit() {
-    await this.loadIndex();
+  private toDto(row: any): MediaFolderDto {
+    return {
+      id: row.id,
+      name: row.name,
+      path: row.path,
+      parentId: row.parentId,
+      icon: row.icon,
+      color: row.color,
+      defaultVisibility: row.defaultVisibility,
+      assetsCount: row._count?.assets,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
   }
 
-  private async loadIndex() {
-    try {
-      const data = await fs.readFile(this.indexPath, 'utf-8');
-      this.folders = JSON.parse(data);
-      this.logger.log(`📁 Folders index loaded with ${this.folders.length} folders.`);
-    } catch {
-      // Seed default folders
-      const now = new Date().toISOString();
-      this.folders = DEFAULT_FOLDERS.map((f) => ({
-        ...f,
-        id: randomUUID(),
-        createdAt: now,
-        updatedAt: now,
-      }));
-      await this.saveIndex();
-      this.logger.log(`📁 Initialized default folders index.`);
-    } finally {
-      this.isLoaded = true;
-    }
+  async getAllFolders(): Promise<MediaFolderDto[]> {
+    const rows = await this.prisma.mediaFolder.findMany({
+      orderBy: [{ createdAt: 'asc' }],
+      include: { _count: { select: { assets: true } } },
+    });
+    return rows.map((r) => this.toDto(r));
   }
 
-  private async saveIndex() {
-    try {
-      await fs.mkdir(path.dirname(this.indexPath), { recursive: true });
-      await fs.writeFile(this.indexPath, JSON.stringify(this.folders, null, 2), 'utf-8');
-    } catch (err: any) {
-      this.logger.error(`Failed to save folders index: ${err.message}`);
-    }
+  async getFolderById(id: string): Promise<MediaFolderDto | null> {
+    const row = await this.prisma.mediaFolder.findUnique({
+      where: { id },
+      include: { _count: { select: { assets: true } } },
+    });
+    return row ? this.toDto(row) : null;
   }
 
-  async getAllFolders(): Promise<MediaFolder[]> {
-    if (!this.isLoaded) await this.loadIndex();
-    return [...this.folders];
-  }
-
-  async getFolderById(id: string): Promise<MediaFolder | null> {
-    if (!this.isLoaded) await this.loadIndex();
-    return this.folders.find((f) => f.id === id) || null;
-  }
-
-  async getFolderByPath(folderPath: string): Promise<MediaFolder | null> {
-    if (!this.isLoaded) await this.loadIndex();
+  async getFolderByPath(folderPath: string): Promise<MediaFolderDto | null> {
     const clean = folderPath.trim().replace(/^\/|\/$/g, '');
-    return this.folders.find((f) => f.path.toLowerCase() === clean.toLowerCase()) || null;
+    const row = await this.prisma.mediaFolder.findFirst({
+      where: { path: { equals: clean, mode: 'insensitive' } },
+      include: { _count: { select: { assets: true } } },
+    });
+    return row ? this.toDto(row) : null;
   }
 
-  async createFolder(dto: CreateFolderDto): Promise<MediaFolder> {
-    if (!this.isLoaded) await this.loadIndex();
+  async createFolder(dto: CreateFolderInput): Promise<MediaFolderDto> {
+    const cleanPath = (
+      dto.path || dto.name.toLowerCase().replace(/[^a-z0-9-_]/gi, '-')
+    )
+      .trim()
+      .replace(/^\/|\/$/g, '');
 
-    const cleanPath = (dto.path || dto.name.toLowerCase().replace(/[^a-z0-9-_]/gi, '-')).replace(/^\/|\/$/g, '');
+    if (!cleanPath) {
+      throw new BadRequestException('Folder path cannot be empty');
+    }
 
-    const exists = this.folders.some((f) => f.path.toLowerCase() === cleanPath.toLowerCase());
+    const exists = await this.getFolderByPath(cleanPath);
     if (exists) {
       throw new BadRequestException(`Folder with path '${cleanPath}' already exists`);
     }
 
-    const now = new Date().toISOString();
-    const newFolder: MediaFolder = {
-      id: randomUUID(),
-      name: dto.name.trim(),
-      path: cleanPath,
-      parentId: dto.parentId || null,
-      color: dto.color || '#3b82f6',
-      icon: dto.icon || 'folder',
-      createdAt: now,
-      updatedAt: now,
-    };
+    const created = await this.prisma.mediaFolder.create({
+      data: {
+        name: dto.name.trim(),
+        path: cleanPath,
+        parentId: dto.parentId || null,
+        icon: dto.icon || 'folder',
+        color: dto.color || '#3b82f6',
+        defaultVisibility: dto.defaultVisibility || MediaVisibility.PRIVATE,
+      },
+      include: { _count: { select: { assets: true } } },
+    });
 
-    this.folders.push(newFolder);
-    await this.saveIndex();
-    return newFolder;
+    const dtoResult = this.toDto(created);
+    this.mediaEvents.emitFolderEvent('FOLDER_CREATED', dtoResult);
+    return dtoResult;
   }
 
   async deleteFolder(id: string): Promise<boolean> {
-    if (!this.isLoaded) await this.loadIndex();
-    const idx = this.folders.findIndex((f) => f.id === id);
-    if (idx === -1) {
+    const existing = await this.prisma.mediaFolder.findUnique({ where: { id } });
+    if (!existing) {
       throw new NotFoundException(`Folder '${id}' not found`);
     }
-
-    this.folders.splice(idx, 1);
-    await this.saveIndex();
+    const dtoResult = this.toDto(existing);
+    await this.prisma.mediaFolder.delete({ where: { id } });
+    this.mediaEvents.emitFolderEvent('FOLDER_DELETED', dtoResult);
     return true;
   }
 }

@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: lemon-media-hub-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-lemon}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lemon_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-lemon_media_db}
+    ports:
+      - "${POSTGRES_PORT:-5440}:5432"
+    volumes:
+      - lemon_media_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lemon} -d ${POSTGRES_DB:-lemon_media_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  lemon_media_pgdata:

@@ -1,0 +1,188 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MediaKind {
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+}
+
+enum MediaVisibility {
+  PRIVATE
+  SCOPED
+  PUBLIC
+}
+
+enum ProcessingStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum VariantType {
+  ORIGINAL
+  FULL_WEBP
+  THUMB_360
+  POSTER_JPG
+  MP4_720P
+  AUDIO_MP3
+}
+
+enum AccessPermission {
+  READ
+  WRITE
+}
+
+enum ProcessingJobType {
+  IMAGE_OPTIMIZE
+  VIDEO_TRANSCODE
+  AUDIO_PROCESS
+}
+
+enum ProcessingJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model ServiceClient {
+  id           String             @id @default(uuid())
+  slug         String             @unique
+  name         String
+  apiKeyHash   String             @unique
+  apiKeyPrefix String
+  scopes       String[]           @default(["media:read"])
+  isActive     Boolean            @default(true)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  grants AssetAccessGrant[]
+}
+
+model MediaFolder {
+  id                String          @id @default(uuid())
+  name              String
+  path              String          @unique
+  parentId          String?
+  parent            MediaFolder?    @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children          MediaFolder[]   @relation("FolderHierarchy")
+  icon              String?         @default("folder")
+  color             String?         @default("#3b82f6")
+  defaultVisibility MediaVisibility @default(PRIVATE)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  assets MediaAsset[]
+}
+
+model MediaAsset {
+  id               String           @id @default(uuid())
+  kind             MediaKind        @default(IMAGE)
+  title            String?
+  description      String?
+  filename         String
+  originalFilename String
+  mimeType         String
+  sizeBytes        Int
+  width            Int?
+  height           Int?
+  aspectRatio      String           @default("16:9")
+  durationMs       Int?
+  codec            String?
+  bitrate          Int?
+  sampleRate       Int?
+  channels         Int?
+  waveformPeaks    Json?
+  processingStatus ProcessingStatus @default(PENDING)
+  processingError  String?
+  processedAt      DateTime?
+  storageKey       String
+  visibility       MediaVisibility  @default(PRIVATE)
+  folderId         String?
+  folder           MediaFolder?     @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  folderPath       String           @default("covers")
+  tags             String[]         @default([])
+  isFavorite       Boolean          @default(false)
+  usageCount       Int              @default(0)
+  sourceAssetId    String?
+  sourceAsset      MediaAsset?      @relation("AssetLineage", fields: [sourceAssetId], references: [id], onDelete: SetNull)
+  derivedAssets    MediaAsset[]     @relation("AssetLineage")
+  sourceApp        String           @default("admin")
+  aiRequestId      String?
+  prompt           String?
+  userPrompt       String?
+  style            String?
+  model            String           @default("manual-upload")
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  variants MediaVariant[]
+  grants   AssetAccessGrant[]
+  jobs     MediaProcessingJob[]
+
+  @@index([kind])
+  @@index([visibility])
+  @@index([processingStatus])
+  @@index([folderId])
+  @@index([folderPath])
+  @@index([sourceAssetId])
+  @@index([isFavorite])
+  @@index([createdAt])
+}
+
+model MediaVariant {
+  id          String      @id @default(uuid())
+  assetId     String
+  asset       MediaAsset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  variantType VariantType
+  storageKey  String
+  mimeType    String
+  sizeBytes   Int
+  width       Int?
+  height      Int?
+  durationMs  Int?
+  createdAt   DateTime    @default(now())
+
+  @@unique([assetId, variantType])
+  @@index([assetId])
+}
+
+model AssetAccessGrant {
+  id         String           @id @default(uuid())
+  assetId    String
+  asset      MediaAsset       @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  clientId   String
+  client     ServiceClient    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  permission AccessPermission @default(READ)
+  grantedAt  DateTime         @default(now())
+  expiresAt  DateTime?
+
+  @@unique([assetId, clientId])
+  @@index([clientId])
+}
+
+model MediaProcessingJob {
+  id         String              @id @default(uuid())
+  assetId    String
+  asset      MediaAsset          @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  jobType    ProcessingJobType
+  status     ProcessingJobStatus @default(PENDING)
+  attempts   Int                 @default(0)
+  error      String?
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  @@index([assetId])
+  @@index([status])
+}

@@ -4,6 +4,8 @@
 
 # Dependencies
 /node_modules
+admin/node_modules/
+node_modules/
 
 # Environment files
 .env
@@ -22,7 +24,11 @@ pnpm-debug.log*
 !/uploads/media/.gitkeep
 /uploads/thumbs/*
 !/uploads/thumbs/.gitkeep
+/uploads/originals/*
+/uploads/variants/*
+/uploads/tmp/*
 /uploads/media-index.json
+/uploads/folders-index.json
 
 # IDE & OS
 .vscode/
