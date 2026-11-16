@@ -1,0 +1,62 @@
+name: lemon-media-hub
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: lemon-media-hub-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-lemon}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lemon_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-lemon_media_db}
+    ports:
+      - "${POSTGRES_PORT:-5440}:5432"
+    volumes:
+      - lemon_media_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lemon} -d ${POSTGRES_DB:-lemon_media_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lemon-media-hub-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: production
+      PORT: 3005
+      DATABASE_URL: postgresql://${POSTGRES_USER:-lemon}:${POSTGRES_PASSWORD:-lemon_secret}@postgres:5432/${POSTGRES_DB:-lemon_media_db}?schema=public
+      CORS_ORIGIN: "*"
+      UPLOAD_DIR: /app/uploads
+      FFMPEG_PATH: /usr/bin/ffmpeg
+      FFPROBE_PATH: /usr/bin/ffprobe
+      LEMON_AI_SERVICE_URL: ${REMOTE_AI_SERVICE_URL:-http://192.168.1.100:3006}
+      HTTP_PROXY: ${REMOTE_HTTP_PROXY:-}
+      HTTPS_PROXY: ${REMOTE_HTTPS_PROXY:-}
+      NO_PROXY: "localhost,127.0.0.1,postgres,192.168.1.100"
+    ports:
+      - "${PORT:-3005}:3005"
+    volumes:
+      - lemon_media_uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3005/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  lemon_media_pgdata:
+  lemon_media_uploads:

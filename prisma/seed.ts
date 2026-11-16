@@ -32,6 +32,12 @@ const DEFAULT_CLIENTS = [
     rawKey: 'lmh_dev_ai_service_key',
     scopes: ['media:read', 'media:write', 'media:publish'],
   },
+  {
+    slug: 'lemon-watchers',
+    name: 'Lemon Watchers',
+    rawKey: 'lmh_dev_watchers_key',
+    scopes: ['media:read', 'media:write', 'media:publish'],
+  },
 ];
 
 const DEFAULT_FOLDERS = [
